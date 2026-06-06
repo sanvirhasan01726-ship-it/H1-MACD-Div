@@ -1,13 +1,83 @@
 import streamlit as st
 import requests
-import pandas as pd
-import pandas_ta as ta
 import time
+import math
+from streamlit_autorefresh import st_autorefresh
 
-# Streamlit Page Configuration
-st.set_page_config(page_title="Crypto 15m 200 EMA Scanner", page_icon="🔍", layout="wide")
+# Streamlit Page configuration
+st.set_page_config(page_title="Crypto Luxury Scanner", layout="wide")
 
-# Advanced CSS for Luxury Look & Dynamic Glow Animations
+# ১ ঘণ্টা (৩৬০০ সেকেন্ড) পর পর অটোমেটিক পেজ রিফ্রেশ ও স্ক্যান করার জন্য অটো-রিফ্রেশার
+# key সেট করা হয়েছে যাতে প্রতি রিফ্রেশে লুপটি নতুন করে ফ্রেশ রান নেয়
+st_autorefresh(interval=3600 * 1000, key="crypto_scanner_refresh")
+
+# টেলিগ্রাম কনফিগারেশন
+TELEGRAM_BOT_TOKEN = "8957518460:AAE_9HaugsNNYfjOzCpbHi2nJAEKf4GSiKs"
+TELEGRAM_CHAT_ID = "6166836299"
+
+# কয়েন লিস্ট (CoinGecko IDs)
+coingecko_coin_ids = [
+    # ১. মেগা ও লার্জ ক্যাপ অল্টকয়েন
+    "bitcoin", "ethereum", "binancecoin", "solana", "ripple", 
+    "cardano", "polkadot", "avalanche-2", "chainlink", "litecoin", 
+    "dogecoin", "shiba-inu", "matic-network", "cosmos", "bitcoin-cash", 
+    "ethereum-classic", "stellar", "near", "tron", "uniswap",
+    # ২. লেয়ার ১ এবং লেয়ার ২ ইকোসিস্টেম
+    "sui", "aptos", "toncoin", "injective-protocol", "sei-network", 
+    "fantom", "algorand", "elrond-erd-2", "celestia", "mina-protocol", 
+    "flow", "internet-computer", "eos", "kava", "astar", 
+    "harmony", "hedera-hashgraph", "iota", "neo", "qtum", 
+    "vechain", "zilliqa", "waves", "theta-token", "stratisevm",
+    "arbitrum", "optimism", "starknet", "metis-token", "manta-network", 
+    "skale", "celo", "loopring", "immutable-x", "omg", "oasis",
+    # ৩. মিম কয়েন
+    "pepe", "dogwifhat", "bonk", "floki", "book-of-meme", 
+    "memecoin", "myro", "1000sats", "corgiai", "coq-inu", 
+    "turbo", "baby-doge-coin", "constitutiondao", "wen", "ai-doge", 
+    "milady-meme-coin", "rats", "notcoin", "popcat", "cat-in-a-dogs-world", 
+    "brett", "mog-coin", "first-neiro-on-ethereum", "moodeng", "goatseus-maximus", 
+    "peanut-the-squirrel", "act-i-the-ai-prophecy", "comedian", "fartcoin", "pudgy-penguins", 
+    "degen-base", "puffer-finned", "aixbt", "cheems", "sundog", 
+    "official-trumpet", "chillguy",
+    # ৪. AI, DePIN এবং বিগ ডেটা
+    "fetch-ai", "render-token", "the-graph", "bittensor", "akash-network", 
+    "singularitynet", "ocean-protocol", "phoenix-global", "arkham", "worldcoin", 
+    "nfprompt", "sleepless-ai", "livepeer", "filecoin", "arweave", 
+    "jasmycoin", "storj", "bluzelle", "ankr", "io-net", 
+    "speculative-token", "nosana", "clore-ai", "golem", "ordinals", 
+    "measurable-data-token", "cortex", "everipedia", "gitcoin", "clover-finance",
+    # ৫. ডেফি, আরডব্লিউএ এবং ওয়েব৩ প্রজেক্টস
+    "aave", "pendle", "maker", "curve-dao-token", "lido-dao", 
+    "jupiter-exchange-solana", "thorchain", "dydx-chain", "ethereum-name-service", "compound-governance-token", 
+    "synthetix-network-token", "sushi", "yearn-finance", "pancakeswap-token", "bakerytoken", 
+    "raydium", "joe", "jito-governance-token", "orca", "cow-protocol", 
+    "1inch", "balancer", "badger-dao", "alpha-finance", "recurrent-value",
+    "ethena", "zero1-labs", "drift-protocol", "safe", "decentralized-usd", 
+    "pyth-network", "axelar", "ondo-finance", "truefi", "alpaca-finance", 
+    "bella-protocol", "bounce-token", "troy", "quickswap", "stafi", 
+    "unifi-protocol-dao", "ether-fi", "renzo", "omni-network", "tensor", 
+    "saga", "bounce-bit", "district0x", "wazirx", "scroll", 
+    "hyperliquid", "magic-eden", "vethor-token", "chronobank", "system-omega",
+    "celer-network", "combo-token", "huma-finance", "zora", "cetus-protocol", "kite-network",
+    # ৬. গেমিং এবং মেটাভার্স (GameFi)
+    "gala", "axie-infinity", "the-sandbox", "decentraland", "pixel", 
+    "beam", "yield-guide-games", "illuvium", "my-neighbor-alice", "enjincoin", 
+    "magic", "portal", "xai", "chiliz", "superfarm", 
+    "voxel", "mines-of-dalarnia", "alien-worlds", "ghost-token", "bigtime", 
+    "token-fi", "vanarchain", "mbox", "revolution-games", "highstreet",
+    # ৭. ইনফ্রাস্ট্রাকচার ও ক্রস-চেইন (Oracle)
+    "wormhole", "stargate-finance", "synapse", "moonbeam", "moonriver", 
+    "kusama", "icon", "band-protocol", "tellor", "dia",
+    # ৮. ওল্ড-স্কুল অল্টকয়েন ও ট্রেন্ডিং লো-ক্যাপ
+    "zcash", "monero", "dash", "horizen", "ontology", 
+    "iotex", "ravencoin", "holotoken", "basic-attention-token", "kyber-network-crystal", 
+    "0x", "ren", "woo-network", "stepn", "space-id", 
+    "open-campus", "hooked-protocol", "cyberconnect", "maverick-protocol", "ark", 
+    "polymath", "loom-network", "barnbridge", "voyager-token", "stratisevm", 
+    "radicle", "mubarak"
+]
+
+# --- UI Custom CSS ---
 st.markdown("""
     <style>
     /* Main Theme - ডার্ক লাক্সারি ব্যাকগ্রাউন্ড */
@@ -25,12 +95,6 @@ st.markdown("""
         font-family: 'Inter', sans-serif;
         font-weight: 900 !important;
         text-shadow: 0px 0px 20px rgba(0, 255, 255, 0.3);
-    }
-    
-    /* Sidebar Border & Dark Theme */
-    [data-testid="stSidebar"] {
-        background-color: #090d16 !important;
-        border-right: 1px solid #1f2937;
     }
     
     /* Live Scanning Card Styling */
@@ -54,218 +118,232 @@ st.markdown("""
         letter-spacing: 2px;
     }
     
-    /* Pulse Animation Logic */
     @keyframes pulse {
         0% { transform: scale(0.99); box-shadow: 0 0 15px rgba(56, 189, 248, 0.3); }
         100% { transform: scale(1.01); box-shadow: 0 0 30px rgba(56, 189, 248, 0.6); }
     }
     
-    /* Custom Styling for Results */
+    /* Signal Output Box Styles */
     .signal-card {
         padding: 15px;
         border-radius: 10px;
         margin-bottom: 10px;
-        font-weight: bold;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        font-family: monospace;
     }
-    .bullish {
-        background: rgba(16, 185, 129, 0.15);
+    .buy-card {
+        background-color: rgba(16, 185, 129, 0.15);
         border: 1px solid #10b981;
         color: #10b981;
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
     }
-    .bearish {
-        background: rgba(239, 68, 68, 0.15);
+    .sell-card {
+        background-color: rgba(239, 68, 68, 0.15);
         border: 1px solid #ef4444;
         color: #ef4444;
-    }
-    .coin-link {
-        color: #00d2ff;
-        text-decoration: none;
-    }
-    .coin-link:hover {
-        text-decoration: underline;
+        box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
     }
     </style>
 """, unsafe_allow_html=True)
 
-# App Title
-st.title("🔍 Premium Crypto 15m 200 EMA Live Scanner")
-st.write("Binance API ব্যবহার করে প্রতি ১৫ মিনিট পর পর স্বয়ংক্রিয় লাইভ ২০০ EMA ট্র্যাকার।")
+st.title("⚡ Luxury Crypto Auto-Scanner (H1 Frame)")
+st.write("স্বয়ংক্রিয় ১ ঘণ্টার স্বাধীন রেডিও স্ক্যানার। এটি প্রতি ১ ঘণ্টা পর পর সচল হবে।")
 
-# User Credentials
-TELEGRAM_BOT_TOKEN = "8957518460:AAE_9HaugsNNYfjOzCpbHi2nJAEKf4GSiKs"
-TELEGRAM_CHAT_ID = "6166836299"
-
-# Binance Pairs List (Mapping from CoinGecko IDs to Binance Symbols)
-# যেসব কয়েন বাইনান্সে USDT পেয়ারে আছে সেগুলো এখানে দেওয়া হলো
-binance_symbols = [
-    "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", 
-    "ADAUSDT", "DOTUSDT", "AVAXUSDT", "LINKUSDT", "LTCUSDT", 
-    "DOGEUSDT", "SHIBUSDT", "MATICUSDT", "ATOMUSDT", "BCHUSDT", 
-    "ETCUSDT", "XLMUSDT", "NEARUSDT", "TRXUSDT", "UNIUSDT",
-    "SUIUSDT", "APTUSDT", "TONUSDT", "INJUSDT", "SEIUSDT", 
-    "FTMUSDT", "ALGOUSDT", "EGLDUSDT", "TIAUSDT", "MINAUSDT", 
-    "FLOWUSDT", "ICPUSDT", "EOSUSDT", "KAVAUSDT", "ASTRUSDT", 
-    "ONEUSDT", "HBARUSDT", "IOTAUSDT", "NEOUSDT", "QTUMUSDT", 
-    "VETUSDT", "ZILUSDT", "WAVESUSDT", "THETAUSDT", "STRATISUSDT",
-    "ARBUSDT", "OPUSDT", "STRKUSDT", "METISUSDT", "MANTAUSDT", 
-    "SKLUSDT", "CELOUSDT", "LRCUSDT", "IMXUSDT", "OMGUSDT", "ROSEUSDT",
-    "PEPEUSDT", "WIFUSDT", "BONKUSDT", "FLOKIUSDT", "BOMEUSDT", 
-    "MEMEUSDT", "MYROUSDT", "1000SATSUSDT", "TURBOUSDT", "BABYDOGEUSDT", 
-    "PEOPLEUSDT", "WENUSDT", "NOTUSDT", "POPCATUSDT", "CATUSDT", 
-    "BRETTUSDT", "MOGUSDT", "NEIROUSDT", "MOODENGUSDT", "GOATUSDT", 
-    "PNUTUSDT", "ACTUSDT", "SUNDOGUSDT",
-    "FETUSDT", "RNDRUSDT", "GRTUSDT", "TAOUSDT", "AKASHTUSDT", 
-    "AGIXUSDT", "OCEANUSDT", "PHBUSDT", "ARKMUSDT", "WLDUSDT", 
-    "NFPUSDT", "AIUSDT", "LPTUSDT", "FILUSDT", "ARUSDT", 
-    "JASMYUSDT", "STORJUSDT", "BLZUSDT", "ANKRUSDT", "IONETUSDT", 
-    "GLMUSDT", "ORDIUSDT", "MDTUSDT", "CTXCIUSDT", "GTCUSDT", "CLVUSDT",
-    "AAVEUSDT", "PENDLEUSDT", "MKRUSDT", "CRVUSDT", "LDOUSDT", 
-    "JUPUSDT", "RUNEUSDT", "DYDXUSDT", "ENSUSDT", "COMPUSDT", 
-    "SNXUSDT", "SUSHIUSDT", "YFIUSDT", "CAKEUSDT", "BAKEUSDT", 
-    "RAYUSDT", "JOEUSDT", "JTOUSDT", "ORCAUSDT", "COWUSDT", 
-    "1INCHUSDT", "BALUSDT", "BADGERUSDT", "ALPHAUSDT",
-    "ENAUSDT", "DRIFTUSDT", "SAFEUSDT", "PYTHUSDT", "AXLUSDT", 
-    "ONDOUSDT", "TRUUSDT", "ALPACAFUSDT", "BELUSDT", "AUCTIONUSDT", 
-    "TROYUSDT", "QUICKUSDT", "FISUSDT", "UNIFIUSDT", "ETHFIUSDT", 
-    "REZUSDT", "OMNIUSDT", "TNSRUSDT", "SAGAUSDT", "BBUSDT", 
-    "DOCKUSDT", "WRXUSDT", "SCRUSDT", "GALAUSDT", "AXSUSDT", 
-    "SANDUSDT", "MANAUSDT", "PIXELUSDT", "BEAMUSDT", "YGGUSDT", 
-    "ILVUSDT", "ALICEUSDT", "ENJUSDT", "MAGICUSDT", "PORTALUSDT", 
-    "XAIUSDT", "CHZUSDT", "SUPERUSDT", "VOXELUSDT", "DARUSDT", 
-    "TLMUSDT", "BIGTIMEUSDT", "TOKENUSDT", "VANRYUSDT", "MBOXUSDT", 
-    "HIGHUSDT", "WOMWHOLEUSDT", "STGUSDT", "SYNUSDT", "GLMRUSDT", 
-    "MOVRUSDT", "KSMUSDT", "ICXUSDT", "BANDUSDT", "TRBUSDT", 
-    "DIAUSDT", "ZECUSDT", "XMRUSDT", "DASHUSDT", "ZENUSDT", 
-    "ONTUSDT", "IOTXUSDT", "RVNUSDT", "HOTUSDT", "BATUSDT", 
-    "KNCUSDT", "ZRXUSDT", "RENUSDT", "WOOUSDT", "GMTUSDT", 
-    "IDUSDT", "EDUUSDT", "HOOKUSDT", "CYBERUSDT", "MAVUSDT", 
-    "ARKUSDT", "POLYUSDT", "LOOMUSDT", "BONDUSDT", "VGXUSDT", "RADUSDT"
-]
-
-# Function to send Telegram Message
-def send_telegram_message(token, chat_id, text):
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+# টেলিগ্রাম ফাংশন
+def send_telegram_message(message):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "Markdown"}
     try:
-        requests.post(url, json=payload)
-    except Exception as e:
-        print(f"Telegram error: {e}")
-
-# Function to fetch data from Binance and calculate 15m 200 EMA
-def get_binance_ema_status(symbol):
-    url = "https://api.binance.com/api/v3/klines"
-    # Fetch 300 candlesticks of 15-minute intervals to calculate 200 EMA accurately
-    params = {"symbol": symbol, "interval": "15m", "limit": "300"}
-    
-    try:
-        response = requests.get(url, params=params)
-        if response.status_code != 200:
-            return "error", None, None
-            
-        data = response.json()
-        if len(data) < 200:
-            return "insufficient_data", None, None
-            
-        # Extract closing prices
-        close_prices = [float(candle[4]) for candle in data]
-        
-        df = pd.DataFrame(close_prices, columns=["price"])
-        df['ema_200'] = ta.ema(df['price'], length=200)
-        
-        last_row = df.iloc[-1]
-        current_price = last_row['price']
-        ema_200 = last_row['ema_200']
-        
-        if pd.isna(ema_200):
-            return "insufficient_data", None, None
-            
-        status = "BULLISH" if current_price > ema_200 else "BEARISH"
-        return status, current_price, ema_200
-        
+        requests.post(url, json=payload, timeout=10)
     except Exception:
-        return "error", None, None
+        pass
 
-# Main Execution Flow
-st.sidebar.header("⚙️ কন্ট্রোল প্যানেল")
-st.sidebar.info("এই অ্যাপ্লিকেশনটি চালূ রাখলে প্রতি ১৫ মিনিট পর পর অটোমেটিক লাইভ স্ক্যান হবে এবং রেজাল্ট আপডেট করবে।")
+# কাস্টম পিওর পাইথন ইন্ডিকেটর ক্যালকুলেটর (Pandas ছাড়া)
+def calculate_ema(prices, period=200):
+    if len(prices) < period:
+        return [0] * len(prices)
+    ema = []
+    k = 2 / (period + 1)
+    # প্রথম SMA দিয়ে শুরু
+    sma = sum(prices[:period]) / period
+    ema.append(sma)
+    for price in prices[period:]:
+        next_ema = (price * k) + (ema[-1] * (1 - k))
+        ema.append(next_ema)
+    # ফ্রন্ট প্যাডিং ব্যালেন্স করা হচ্ছে
+    return [0] * (period - 1) + ema
 
-# Containers for results
-live_status_box = st.empty()
+def calculate_macd(prices, slow=26, fast=12, signal_period=9):
+    if len(prices) < slow:
+        return [], []
+    
+    # Fast EMA
+    k_fast = 2 / (fast + 1)
+    ema_fast = [prices[0]]
+    for p in prices[1:]:
+        ema_fast.append((p * k_fast) + (ema_fast[-1] * (1 - k_fast)))
+        
+    # Slow EMA
+    k_slow = 2 / (slow + 1)
+    ema_slow = [prices[0]]
+    for p in prices[1:]:
+        ema_slow.append((p * k_slow) + (ema_slow[-1] * (1 - k_slow)))
+        
+    # MACD Line
+    macd_line = [f - s for f, s in zip(ema_fast, ema_slow)]
+    
+    # Signal Line (EMA of MACD Line)
+    if len(macd_line) < signal_period:
+        return [], []
+    k_sig = 2 / (signal_period + 1)
+    signal_line = [macd_line[0]]
+    for m in macd_line[1:]:
+        signal_line.append((m * k_sig) + (signal_line[-1] * (1 - k_sig)))
+        
+    return macd_line, signal_line
+
+# ডাটা ফেচিং এবং লজিক অ্যানালাইসিস
+def fetch_and_analyze(coin_id):
+    # CoinGecko OHLC API ব্যবহার (H1 টাইমফ্রেমের জন্য ১ বা ৩০ দিনের উইন্ডো পারফেক্ট)
+    url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/ohlc?vs_currency=usd&days=30"
+    try:
+        response = requests.get(url, timeout=15)
+        if response.status_code != 200:
+            return None
+        data = response.json() # [timestamp, open, high, low, close]
+        if len(data) < 210: # ২০০ EMA এবং লুকব্যাকের জন্য পর্যাপ্ত ডাটা দরকার
+            return None
+        
+        closes = [candle[4] for candle in data]
+        highs = [candle[2] for candle in data]
+        lows = [candle[3] for candle in data]
+        
+        current_close = closes[-1]
+        
+        # ১. EMA 200 ক্যালকুলেশন
+        ema200_list = calculate_ema(closes, 200)
+        current_ema200 = ema200_list[-1]
+        
+        # ২. MACD Divergence Lookback=30
+        macd_line, signal_line = calculate_macd(closes)
+        if not macd_line or not signal_line:
+            return None
+            
+        # উইন্ডো ম্যাচ করার জন্য শেষ ৩০টি ভ্যালু নেওয়া
+        m_lookback = macd_line[-30:]
+        s_lookback = signal_line[-30:]
+        
+        # ডাইভারজেন্স ট্র্যাকিং লজিক
+        macd_divergence_bullish = False
+        macd_divergence_bearish = False
+        if len(m_lookback) >= 2:
+            # সিম্পল ডাইভারজেন্স ট্র্যাকিং: প্রাইস এবং ম্যাকডি লাইনের শেষ প্রান্তের ট্রেন্ড বিপরীত কিনা
+            price_trend = closes[-1] - closes[-15]
+            macd_trend = m_lookback[-1] - m_lookback[-15]
+            if price_trend < 0 and macd_trend > 0:
+                macd_divergence_bullish = True
+            elif price_trend > 0 and macd_trend < 0:
+                macd_divergence_bearish = True
+
+        # ৩. Equal Low / High (Swing Prominence=5, Buffer=0.0025)
+        # শেষ ৩০ ক্যান্ডেলে লোকাল সুইং হাই/লো বের করা
+        buffer = 0.0025
+        is_equal_low = False
+        is_equal_high = False
+        
+        # শেষ ক্যান্ডেলের লো/হাই এর সাথে পূর্ববর্তী লোকাল সুইং ম্যাচিং
+        curr_low = lows[-1]
+        curr_high = highs[-1]
+        
+        # সুইং প্রমিনেন্স চেক (৫টি ক্যান্ডেলের উইন্ডো)
+        for j in range(-25, -5):
+            # Equal Low Check
+            if abs(lows[j] - curr_low) <= buffer:
+                # আশেপাশের ক্যান্ডেলের চেয়ে লো কিনা ভেরিফাই করা
+                if lows[j] == min(lows[j-2:j+3]):
+                    is_equal_low = True
+            # Equal High Check
+            if abs(highs[j] - curr_high) <= buffer:
+                if highs[j] == max(highs[j-2:j+3]):
+                    is_equal_high = True
+
+        # ৪. সিগন্যাল ট্রিগার স্টেটমেন্ট
+        # Buy Signal: Price < EMA200 + Equal Low + Bullish Divergence
+        if current_close < current_ema200 and is_equal_low and macd_divergence_bullish:
+            return {"type": "BUY", "price": current_close}
+            
+        # Sell Signal: Price > EMA200 + Equal High + Bearish Divergence
+        if current_close > current_ema200 and is_equal_high and macd_divergence_bearish:
+            return {"type": "SELL", "price": current_close}
+            
+        return None
+    except Exception:
+        return None
+
+# --- UI Layout ২ ভাগে বিভক্ত ---
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("🟢 15m 200 EMA এর উপরে (Buy Signal)")
-    bullish_container = st.container()
+    st.subheader("🟢 Buy Signals (Green Output)")
+    buy_container = st.container()
 
 with col2:
-    st.subheader("🔴 15m 200 EMA এর নিচে (Sell Signal)")
-    bearish_container = st.container()
+    st.subheader("🔴 Sell Signals (Red Output)")
+    sell_container = st.container()
 
-# Auto Refresh & Scan Loop
-while True:
-    # Clear previous screen results before starting a new cycle
-    bullish_container.empty()
-    bearish_container.empty()
+# লাইভ স্ট্যাটাস বক্স কন্টেইনার (এটি টপে স্লাইড হবে)
+live_status_box = st.empty()
+
+# মেইন প্রসেসিং লুপ
+total_coins = len(coingecko_coin_ids)
+
+for i, coin in enumerate(coingecko_coin_ids):
+    progress_perc = int(((i + 1) / total_coins) * 100)
     
-    total_coins = len(binance_symbols)
+    # আপনার দেওয়া চমৎকার লাইভ পপ-আপ অ্যানিমেশন বক্স
+    live_status_box.markdown(f"""
+        <div class="scanning-box">
+            <p style="color: #38bdf8; font-size: 1.2rem; margin-bottom: 5px; font-weight: 600;">
+                🔍 বর্তমান স্ক্যানিং প্রোগ্রেস: {progress_perc}% ({i+1}/{total_coins})
+            </p>
+            <div class="scanning-coin">{coin.upper()}</div>
+            <p style="color: #64748b; font-size: 0.9rem; margin-top: 5px;">
+                কয়েনগেকো সার্ভার রেট-লিমিট কূলডাউন বিরতি চলমান...
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
     
-    # Telegram Broadcast for scan start
-    send_telegram_message(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, "🔄 *১৫ মিনিটের ক্যান্ডেল স্ক্যান শুরু হয়েছে...*")
+    # অ্যানালাইসিস শুরু
+    result = fetch_and_analyze(coin)
     
-    for i, symbol in enumerate(binance_symbols):
-        progress_perc = int(((i + 1) / total_coins) * 100)
-        
-        # Display custom animated scanning card
-        live_status_box.markdown(f"""
-            <div class="scanning-box">
-                <p style="color: #38bdf8; font-size: 1.2rem; margin-bottom: 5px; font-weight: 600;">
-                    🔍 লাইভ স্ক্যানিং প্রোগ্রেস (15m Timeframe): {progress_perc}% ({i+1}/{total_coins})
-                </p>
-                <div class="scanning-coin">{symbol}</div>
-                <p style="color: #64748b; font-size: 0.9rem; margin-top: 5px;">
-                    বাইনান্স হাই-স্পিড ডাটাবেজ প্রসেসিং চলছে...
-                </p>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        # Fetching Status from Binance
-        status, price, ema = get_binance_ema_status(symbol)
-        
-        coin_url = f"https://www.binance.com/en/trade/{symbol.replace('USDT', '_USDT')}"
-        
-        if status == "BULLISH":
-            # Display in UI
-            bullish_container.markdown(f"""
-                <div class="signal-card bullish">
-                    <span>🟢 <a class="coin-link" href="{coin_url}" target="_blank">{symbol}</a></span>
-                    <span>Price: ${price:,.4f} | EMA: ${ema:,.4f}</span>
-                </div>
-            """, unsafe_allow_html=True)
+    if result:
+        if result["type"] == "BUY":
+            # ব্রাউজার আউটপুট (সবুজ থিম)
+            with buy_container:
+                st.markdown(f"""
+                    <div class="signal-card buy-card">
+                        <h3>🟢 {coin.upper()} - BUY SIGNAL</h3>
+                        <p>Price: ${result['price']}</p>
+                        <small>Timeframe: H1 | Condition Matrix Match</small>
+                    </div>
+                """, unsafe_allow_html=True)
+            # টেলিগ্রাম নোটিফিকেশন প্রেরণ
+            send_telegram_message(f"🟢 *BUY SIGNAL DETECTED*\n\nCoin: {coin.upper()}\nPrice: ${result['price']}\nTF: 1 Hour\nStatus: 200 EMA Down + Equal Low + MACD Divergence")
             
-            # Send Telegram Message
-            msg = f"🟢 *15m BUY SIGNAL* 🟢\n\n*Coin:* [{symbol}]({coin_url})\n*Status:* Above 200 EMA (15m)\n*Price:* ${price:,.4f}\n*200 EMA:* ${ema:,.4f}"
-            send_telegram_message(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, msg)
-            
-        elif status == "BEARISH":
-            # Display in UI
-            bearish_container.markdown(f"""
-                <div class="signal-card bearish">
-                    <span>🔴 <a class="coin-link" href="{coin_url}" target="_blank">{symbol}</a></span>
-                    <span>Price: ${price:,.4f} | EMA: ${ema:,.4f}</span>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            # Send Telegram Message
-            msg = f"🔴 *15m SELL SIGNAL* 🔴\n\n*Coin:* [{symbol}]({coin_url})\n*Status:* Below 200 EMA (15m)\n*Price:* ${price:,.4f}\n*200 EMA:* ${ema:,.4f}"
-            send_telegram_message(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, msg)
-            
-        # Binance API allows faster requests (0.1 seconds interval is totally fine)
-        time.sleep(0.1)
-        
-    live_status_box.success("🎉 স্ক্যান শেষ! পরবর্তী স্ক্যান ১৫ মিনিট পর স্বয়ংক্রিয়ভাবে শুরু হবে।")
-    
-    # Wait for 15 minutes (15 minutes = 900 seconds) before starting the next cycle
-    time.sleep(900)
+        elif result["type"] == "SELL":
+            # ব্রাউজার আউটপুট (লাল থিম)
+            with sell_container:
+                st.markdown(f"""
+                    <div class="signal-card sell-card">
+                        <h3>🔴 {coin.upper()} - SELL SIGNAL</h3>
+                        <p>Price: ${result['price']}</p>
+                        <small>Timeframe: H1 | Condition Matrix Match</small>
+                    </div>
+                """, unsafe_allow_html=True)
+            # টেলিগ্রাম নোটিফিকেশন প্রেরণ
+            send_telegram_message(f"🔴 *SELL SIGNAL DETECTED*\n\nCoin: {coin.upper()}\nPrice: ${result['price']}\nTF: 1 Hour\nStatus: 200 EMA Up + Equal High + MACD Divergence")
+
+    # CoinGecko Public API Rate Limit (প্রতি মিনিটে ১০-৩০ রিকোয়েস্ট) এড়াতে হালকা ইন্টারভাল গ্যাপ
+    time.sleep(1.8)
+
+# স্ক্যান শেষ হলে পপ-আপ বক্সটি সফল বার্তা দেখাবে
+live_status_box.success("✅ ১ ঘণ্টার এই রাউন্ডের স্ক্যানিং সফলভাবে সম্পন্ন হয়েছে! পরবর্তী স্ক্যান অটোমেটিক শুরু হবে।")
